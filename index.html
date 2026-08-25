@@ -123,11 +123,25 @@
     </div>
 
     <div class="panel" id="poolPanel" style="display:none;">
-      <h2>4. Pool length</h2>
+      <h2>4. Race setup</h2>
       <div class="row">
         <div><label>Pool length (m)</label><input type="number" id="poolLength" value="25" step="1"></div>
+        <div><label>Total distance (m)</label><input type="number" id="totalDistance" value="50" step="25"></div>
       </div>
-      <small class="note">Used to detect wall turns (when the swimmer's position along the calibration axis nears 0 or the pool length).</small>
+      <div class="row">
+        <div style="width:100%;">
+          <label>Stroke</label>
+          <select id="strokeSelect" style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font-size:13px;">
+            <option value="auto">Auto-detect (least reliable)</option>
+            <option value="freestyle">Freestyle</option>
+            <option value="backstroke">Backstroke</option>
+            <option value="breaststroke">Breaststroke</option>
+            <option value="butterfly">Butterfly</option>
+            <option value="im">Individual Medley (IM)</option>
+          </select>
+        </div>
+      </div>
+      <small class="note">Telling it the stroke and distance replaces the guesswork — for IM it assumes the standard equal-length order Fly → Back → Breast → Free based on total distance ÷ pool length ÷ 4.</small>
     </div>
 
     <div class="panel" id="runPanel" style="display:none;">
@@ -577,6 +591,29 @@ function computeMetrics(){
   }
   splits.push({ t: analysisData[analysisData.length-1].t, xM: analysisData[analysisData.length-1].xM, splitTime: analysisData[analysisData.length-1].t - lastTime });
 
+  // ---- assign stroke per length using user-provided info instead of guessing ----
+  const strokeChoice = $('strokeSelect').value;
+  const totalDistance = parseFloat($('totalDistance').value) || (poolLength * splits.length);
+  const expectedLengths = Math.max(1, Math.round(totalDistance / poolLength));
+  const IM_ORDER = ['Butterfly','Backstroke','Breaststroke','Freestyle'];
+  const strokeLabels = {freestyle:'Freestyle', backstroke:'Backstroke', breaststroke:'Breaststroke', butterfly:'Butterfly'};
+
+  splits.forEach((s,i)=>{
+    if (strokeChoice === 'im'){
+      const legSize = expectedLengths / 4;
+      const legIdx = Math.min(3, Math.floor(i / Math.max(legSize,0.0001)));
+      s.stroke = IM_ORDER[legIdx];
+    } else if (strokeChoice !== 'auto'){
+      s.stroke = strokeLabels[strokeChoice] || strokeChoice;
+    } else {
+      s.stroke = null; // filled in below from the heuristic
+    }
+  });
+
+  if (splits.length !== expectedLengths){
+    $('runStatus').textContent = `Note: detected ${splits.length} length(s) from wall turns, but ${totalDistance}m over a ${poolLength}m pool implies ${expectedLengths}. Check the splits table below against the video — turn detection can miscount if the calibration axis or tracking wobbled.`;
+  }
+
   // stroke rate + classification via wrist vertical oscillation
   const wristY = analysisData.map(d=>{
     const lw = d.kps.find(k=>k.name==='left_wrist');
@@ -584,7 +621,13 @@ function computeMetrics(){
     return { t:d.t, l: lw&&lw.score>0.3?lw.y:null, r: rw&&rw.score>0.3?rw.y:null };
   });
   const { strokeRateSpm, symmetry } = estimateStrokeRate(wristY);
-  const stroke = classifyStroke(symmetry, analysisData);
+  const heuristicStroke = classifyStroke(symmetry, analysisData);
+  if (strokeChoice === 'auto'){
+    splits.forEach(s => { s.stroke = s.stroke || heuristicStroke; });
+  }
+  const headlineStroke = strokeChoice === 'auto' ? heuristicStroke
+    : strokeChoice === 'im' ? 'Individual Medley (Fly \u2192 Back \u2192 Breast \u2192 Free)'
+    : (strokeLabels[strokeChoice] || strokeChoice);
 
   // ankle vertical oscillation -> kick count (rough, whole-video estimate)
   const ankleY = analysisData.map(d=>{
@@ -595,7 +638,7 @@ function computeMetrics(){
   });
   const kicks = countPeaks(ankleY.filter(v=>v!==null));
 
-  renderResults({splits, strokeRateSpm, stroke, kicks});
+  renderResults({splits, strokeRateSpm, stroke: headlineStroke, kicks});
   drawSpeedChart();
 }
 
@@ -656,10 +699,10 @@ function renderResults({splits, strokeRateSpm, stroke, kicks}){
     <div class="metric"><span>Kick count (whole clip, rough)</span><b>${kicks}</b></div>
     <div class="metric"><span>Detected wall turns</span><b>${splits.length-1}</b></div>
   `;
-  let rows = splits.map((s,i)=>`<tr><td>${i===splits.length-1?'Finish':'Turn '+(i+1)}</td><td>${s.t.toFixed(2)}s</td><td>${s.splitTime.toFixed(2)}s</td></tr>`).join('');
+  let rows = splits.map((s,i)=>`<tr><td>${i===splits.length-1?'Finish':'Turn '+(i+1)}</td><td>${s.stroke||'—'}</td><td>${s.t.toFixed(2)}s</td><td>${s.splitTime.toFixed(2)}s</td></tr>`).join('');
   $('splitsTableWrap').innerHTML = `
     <table style="margin-top:10px;">
-      <tr><th>Event</th><th>Time</th><th>Split</th></tr>
+      <tr><th>Event</th><th>Stroke</th><th>Time</th><th>Split</th></tr>
       ${rows}
     </table>`;
 }
