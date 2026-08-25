@@ -2,739 +2,368 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Swim Video Analyzer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swim Video Analyzer — Advanced</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.17.0/dist/tf-core.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.17.0/dist/tf-converter.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.17.0/dist/tf-backend-webgl.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@2.1.3/dist/pose-detection.min.js"></script>
 <style>
-  :root{
-    --bg:#0b1220; --panel:#121b2e; --panel2:#0e1626; --line:#22304a;
-    --text:#e7eefc; --sub:#8fa3c4; --accent:#4fd1c5; --accent2:#f6ad55; --danger:#f56565;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
-  header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;}
-  header h1{font-size:18px;margin:0;font-weight:600;}
-  header .tag{font-size:12px;color:var(--sub);}
-  .wrap{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px;max-width:1400px;margin:0 auto;}
-  @media (max-width:900px){.wrap{grid-template-columns:1fr;}}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;}
-  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);margin:0 0 10px;}
-  #stage{position:relative;background:#000;border-radius:10px;overflow:hidden;}
-  #video,#overlay{position:absolute;top:0;left:0;width:100%;height:100%;}
-  #overlay{pointer-events:none;}
-  #overlay.interactive{pointer-events:auto;cursor:crosshair;}
-  #stage-inner{position:relative;width:100%;}
-  video{width:100%;display:block;}
-  canvas{width:100%;display:block;}
-  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;}
-  label{font-size:12px;color:var(--sub);display:block;margin-bottom:4px;}
-  input[type=number], input[type=text]{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;width:90px;font-size:13px;}
-  button{background:var(--accent);color:#08201d;border:none;border-radius:8px;padding:8px 12px;font-weight:600;font-size:13px;cursor:pointer;}
-  button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
-  button.warn{background:var(--accent2);color:#3a2200;}
-  button:disabled{opacity:.4;cursor:not-allowed;}
-  .status{font-size:12px;color:var(--sub);margin-top:6px;min-height:16px;}
-  .steps li{margin-bottom:6px;font-size:13px;color:var(--sub);}
-  .steps li.active{color:var(--text);font-weight:600;}
-  table{width:100%;border-collapse:collapse;font-size:12px;}
-  th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);}
-  th{color:var(--sub);font-weight:500;}
-  .pill{display:inline-block;padding:2px 8px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:11px;color:var(--sub);}
-  .metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;}
-  .metric b{color:var(--accent);}
-  #progressWrap{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:8px;display:none;}
-  #progressBar{height:100%;width:0%;background:var(--accent);}
-  small.note{color:var(--sub);font-size:11px;display:block;margin-top:4px;line-height:1.4;}
-  #speedChart{width:100%;height:120px;background:var(--panel2);border-radius:8px;}
-  .flex-between{display:flex;justify-content:space-between;align-items:center;}
+:root{--bg:#07101d;--panel:#0d1829;--panel2:#091322;--line:#1d304b;--text:#eaf2ff;--muted:#8ea4c5;--accent:#52e0ce;--orange:#ffb454;--red:#ff6b6b;--blue:#79a9ff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{height:64px;padding:0 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;position:sticky;top:0;background:#07101df2;backdrop-filter:blur(12px);z-index:20}
+header h1{font-size:18px;margin:0}header span{font-size:12px;color:var(--muted)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:16px;max-width:1700px;margin:auto;padding:16px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:14px}
+.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 11px}
+.stage{position:relative;background:#000;border-radius:10px;overflow:hidden;min-height:300px}
+.stage-inner{position:relative;width:100%}.stage video{width:100%;display:block;background:#000}
+#overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#overlay.interactive{pointer-events:auto;cursor:crosshair}
+.toolbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:9px}
+button,select,input{font:inherit}button{border:0;border-radius:8px;padding:8px 11px;background:var(--accent);color:#06221e;font-weight:700;cursor:pointer}
+button.secondary{background:var(--panel2);border:1px solid var(--line);color:var(--text)}button.warn{background:var(--orange);color:#351e00}button.danger{background:var(--red);color:#300}
+button:disabled{opacity:.4;cursor:not-allowed}
+input,select{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:7px 8px;width:100%}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.status{font-size:12px;color:var(--muted);min-height:17px;margin-top:7px;line-height:1.4}.error{color:var(--red)}
+.steps{list-style:none;padding:0;margin:0;display:grid;gap:5px}.steps li{padding:9px 10px;border-radius:8px;color:var(--muted);font-size:12px;border:1px solid transparent}.steps li.active{color:var(--text);background:var(--panel2);border-color:var(--line)}
+.steps li.done{color:var(--accent)}
+.note{font-size:11px;line-height:1.45;color:var(--muted)}
+.progress{height:6px;background:var(--panel2);border-radius:5px;overflow:hidden;margin-top:8px}.progress>div{height:100%;width:0;background:var(--accent)}
+.badge{display:inline-block;font-size:10px;border:1px solid var(--line);background:var(--panel2);color:var(--muted);padding:3px 7px;border-radius:99px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:9px}.metric small{display:block;color:var(--muted);font-size:10px}.metric b{display:block;margin-top:4px;font-size:16px;color:var(--accent)}
+table{width:100%;border-collapse:collapse;font-size:11px}th,td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:500}
+#speedChart{width:100%;height:150px;background:var(--panel2);border-radius:9px;margin-top:8px}
+#timeline{width:100%;height:52px;background:var(--panel2);border-radius:8px;margin-top:8px}
+.hidden{display:none!important}.section-actions{display:flex;justify-content:space-between;gap:8px;align-items:center}.tiny{font-size:10px;color:var(--muted)}
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.right{display:grid;grid-template-columns:1fr 1fr;gap:14px}.right>.panel{margin-bottom:0}}
+@media(max-width:700px){.right{display:block}.grid3,.grid2,.metrics{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <header>
   <h1>🏊 Swim Video Analyzer</h1>
-  <span class="tag">runs entirely in your browser — no video is uploaded anywhere</span>
+  <span>Advanced race / training analysis · processing stays in your browser</span>
+  <span class="badge" id="modelBadge">Model: not loaded</span>
 </header>
 
-<div class="wrap">
-  <div>
-    <div class="panel">
-      <h2>1. Load video</h2>
-      <input type="file" id="fileInput" accept="video/*">
-      <div id="stage" style="display:none;margin-top:10px;">
-        <div id="stage-inner">
-          <video id="video" muted playsinline controls></video>
-          <canvas id="overlay"></canvas>
-        </div>
-      </div>
-      <div class="status" id="videoError" style="color:#f56565;"></div>
-      <div id="convertWrap" style="display:none;margin-top:6px;">
-        <div class="status" id="convertStatus" style="color:var(--accent2);"></div>
-        <div style="height:6px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:4px;"><div id="convertBar" style="height:100%;width:0%;background:var(--accent2);"></div></div>
-      </div>
-      <div class="row" id="videoControls" style="display:none;margin-top:10px;">
-        <button class="secondary" id="playPause">Play/Pause</button>
-        <button class="secondary" id="stepBack">-0.1s</button>
-        <button class="secondary" id="stepFwd">+0.1s</button>
-        <span class="status" id="timeLabel">0.00s</span>
+<main class="layout">
+<section>
+  <div class="panel">
+    <h2>1. Load video</h2>
+    <input id="fileInput" type="file" accept="video/*">
+    <div id="videoError" class="status error"></div>
+    <div id="convert" class="hidden">
+      <div id="convertStatus" class="status"></div>
+      <div class="progress"><div id="convertBar"></div></div>
+    </div>
+
+    <div id="stage" class="stage hidden" style="margin-top:10px">
+      <div id="stageInner" class="stage-inner">
+        <video id="video" muted playsinline controls></video>
+        <canvas id="overlay"></canvas>
       </div>
     </div>
 
-    <div class="panel">
-      <h2>Live results</h2>
-      <canvas id="speedChart"></canvas>
-      <div id="metrics"></div>
-      <div id="splitsTableWrap"></div>
-      <div class="row" style="margin-top:10px;">
-        <button class="secondary" id="exportCsv" disabled>Export CSV</button>
-      </div>
+    <div id="videoControls" class="toolbar hidden">
+      <button class="secondary" id="play">Play</button>
+      <button class="secondary" id="back">−0.1s</button>
+      <button class="secondary" id="forward">+0.1s</button>
+      <button class="secondary" id="frameBack">−1 frame</button>
+      <button class="secondary" id="frameForward">+1 frame</button>
+      <span class="tiny" id="time">0.00 / 0.00 s</span>
+    </div>
+    <div class="status" id="videoInfo"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Analysis output</h2>
+    <div id="metrics" class="metrics"></div>
+    <canvas id="speedChart"></canvas>
+    <canvas id="timeline"></canvas>
+    <div id="splitsWrap" style="margin-top:10px"></div>
+    <div class="toolbar">
+      <button class="secondary" id="exportCsv" disabled>Export CSV</button>
+      <button class="secondary" id="exportJson" disabled>Export JSON</button>
+    </div>
+  </div>
+</section>
+
+<aside class="right">
+  <div class="panel">
+    <h2>Workflow</h2>
+    <ol class="steps" id="steps">
+      <li id="s1">1. Load a video (left)</li>
+      <li id="s2">2. Click the swimmer to track</li>
+      <li id="s3">3. Calibrate real-world distance</li>
+      <li id="s4">4. Mark wall / lane length</li>
+      <li id="s5">5. Run analysis</li>
+    </ol>
+  </div>
+
+  <div class="panel hidden" id="selectPanel">
+    <h2>2. Select swimmer</h2>
+    <button id="detect">Detect people in current frame</button>
+    <div id="detectStatus" class="status"></div>
+    <div class="status">Scrub to a frame where the swimmer is visible. Detect people, then click the swimmer. The selected body becomes the tracking target for the entire video.</div>
+  </div>
+
+  <div class="panel hidden" id="calibPanel">
+    <h2>3. Calibrate real-world distance</h2>
+    <div class="note">Click two points whose real distance is known. Best choices: two visible lane-rope markers or two points along the swimmer's travel line.</div>
+    <div class="grid2" style="margin-top:9px">
+      <div><label>Known distance (m)</label><input id="calibMeters" type="number" value="25" min=".1" step=".1"></div>
+      <div><label>Axis</label><select id="axisMode"><option value="click">Use clicked line</option><option value="horizontal">Horizontal</option></select></div>
+    </div>
+    <button class="secondary" id="startCalib" style="margin-top:9px">Click 2 calibration points</button>
+    <div id="calibStatus" class="status"></div>
+  </div>
+
+  <div class="panel hidden" id="racePanel">
+    <h2>4. Race setup + wall marking</h2>
+    <div class="grid2">
+      <div><label>Lane / pool length (m)</label><input id="poolLength" type="number" value="25" min="1" step="1"></div>
+      <div><label>Total race distance (m)</label><input id="totalDistance" type="number" value="200" min="25" step="25"></div>
+    </div>
+    <div style="margin-top:9px"><label>Stroke / event</label>
+      <select id="stroke">
+        <option value="freestyle">Freestyle</option>
+        <option value="backstroke">Backstroke</option>
+        <option value="breaststroke">Breaststroke</option>
+        <option value="butterfly">Butterfly</option>
+        <option value="im">Individual Medley — Fly → Back → Breast → Free</option>
+      </select>
+    </div>
+    <div class="grid2" style="margin-top:9px">
+      <div><label>Analysis sample (ms)</label><input id="sampleMs" type="number" value="80" min="40" step="20"></div>
+      <div><label>Wall tolerance (m)</label><input id="wallTol" type="number" value="1.2" min=".2" step=".1"></div>
+    </div>
+    <div class="section-actions" style="margin-top:11px">
+      <button class="warn" id="markWalls">Mark wall positions</button>
+      <span class="tiny" id="wallStatus">0 / 2 walls</span>
+    </div>
+    <div class="status">For a 25 m pool, mark the visible wall/turn line at each end. This is separate from pixel-to-meter calibration and makes length/turn detection much more stable.</div>
+    <div id="wallButtons" class="toolbar hidden">
+      <button class="secondary" id="clearWalls">Clear walls</button>
     </div>
   </div>
 
-  <div>
-    <div class="panel">
-      <h2>Workflow</h2>
-      <ol class="steps" id="stepsList">
-        <li id="step1">1. Load a video (left)</li>
-        <li id="step2">2. Click the swimmer to track</li>
-        <li id="step3">3. Calibrate real-world distance</li>
-        <li id="step4">4. Mark wall / lane length</li>
-        <li id="step5">5. Run analysis</li>
-      </ol>
+  <div class="panel hidden" id="runPanel">
+    <h2>5. Run analysis</h2>
+    <div class="grid2">
+      <div><label>Tracking mode</label><select id="tracking"><option value="smart">Smart pose tracking</option><option value="nearest">Nearest pose</option></select></div>
+      <div><label>Min keypoint confidence</label><input id="confidence" type="number" value=".30" min=".05" max=".9" step=".05"></div>
     </div>
+    <button id="run" style="width:100%;margin-top:10px">Analyze full video</button>
+    <div class="progress"><div id="progress"></div></div>
+    <div id="runStatus" class="status"></div>
+    <div class="note" style="margin-top:7px">Analysis seeks through the whole video and runs pose estimation. Lower sample intervals increase detail but can make processing much slower.</div>
+  </div>
 
-    <div class="panel" id="selectPanel" style="display:none;">
-      <h2>2. Select swimmer</h2>
-      <button id="detectBtn">Detect people in this frame</button>
-      <div class="status" id="detectStatus"></div>
-      <small class="note">Scrub to a frame where your swimmer is clearly visible (ideally above water), then click "Detect people", then click on that person in the video.</small>
-    </div>
-
-    <div class="panel" id="calibPanel" style="display:none;">
-      <h2>3. Calibrate scale</h2>
-      <div class="status">Click two points along the swim direction whose real-world distance you know (e.g. two lane rope markers, or wall-to-wall on the pool floor).</div>
-      <button class="secondary" id="calibBtn" style="margin-top:8px;">Start calibration click</button>
-      <div class="row" style="margin-top:8px;">
-        <div><label>Real distance (m)</label><input type="number" id="calibMeters" value="25" step="0.1"></div>
-      </div>
-      <div class="status" id="calibStatus"></div>
-    </div>
-
-    <div class="panel" id="poolPanel" style="display:none;">
-      <h2>4. Race setup</h2>
-      <div class="row">
-        <div><label>Pool length (m)</label><input type="number" id="poolLength" value="25" step="1"></div>
-        <div><label>Total distance (m)</label><input type="number" id="totalDistance" value="50" step="25"></div>
-      </div>
-      <div class="row">
-        <div style="width:100%;">
-          <label>Stroke</label>
-          <select id="strokeSelect" style="width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 8px;font-size:13px;">
-            <option value="auto">Auto-detect (least reliable)</option>
-            <option value="freestyle">Freestyle</option>
-            <option value="backstroke">Backstroke</option>
-            <option value="breaststroke">Breaststroke</option>
-            <option value="butterfly">Butterfly</option>
-            <option value="im">Individual Medley (IM)</option>
-          </select>
-        </div>
-      </div>
-      <small class="note">Telling it the stroke and distance replaces the guesswork — for IM it assumes the standard equal-length order Fly → Back → Breast → Free based on total distance ÷ pool length ÷ 4.</small>
-    </div>
-
-    <div class="panel" id="runPanel" style="display:none;">
-      <h2>5. Run analysis</h2>
-      <div class="row">
-        <div><label>Sample every (ms)</label><input type="number" id="sampleMs" value="100" step="50"></div>
-      </div>
-      <button id="runBtn">Analyze full video</button>
-      <div id="progressWrap"><div id="progressBar"></div></div>
-      <div class="status" id="runStatus"></div>
-      <small class="note">This steps through the video frame-by-frame running pose detection — a few minutes of footage can take a couple of minutes to process. Keep this tab in front (some browsers throttle background tabs).</small>
-    </div>
-
-    <div class="panel">
-      <h2>Notes on accuracy</h2>
-      <small class="note">
-      • Speed/splits are only as good as your calibration — use two points that lie along the swimmer's actual line of travel, and try to film from directly to the side when possible.<br><br>
-      • Underwater kick counts and underwater distance are the least reliable numbers here — pose models struggle with refraction/blur underwater, so treat those as estimates to sanity-check by eye, not ground truth.<br><br>
-      • Stroke classification is a heuristic (arm-symmetry + body orientation), not a trained classifier. It'll usually get freestyle/backstroke vs breaststroke/butterfly right; fly vs breast is the shakiest split.
-      </small>
+  <div class="panel">
+    <h2>What it calculates</h2>
+    <div class="note">
+      • Whole-video distance, elapsed race time, average/max speed<br>
+      • Every detected 25/50 m length and split<br>
+      • Turn/length detection using the marked wall positions<br>
+      • Stroke per length, including IM's Fly → Back → Breast → Free sequence<br>
+      • Approximate stroke rate from wrist motion<br>
+      • Approximate kick activity from ankle motion<br>
+      • Speed-vs-time graph and CSV/JSON export
     </div>
   </div>
-</div>
+</aside>
+</main>
 
 <script>
-const $ = id => document.getElementById(id);
-let video = $('video'), overlay = $('overlay'), stageInner = $('stage-inner');
-let detector = null;
-let currentPoses = [];
-let selectedTrack = null; // {history: [{t,x,y,kps}], color}
-let calib = null; // {p1:{x,y}, p2:{x,y}, meters, pxPerM}
-let calibClicksLeft = 0, calibPoints = [];
-let analysisData = []; // {t, xM, yM, speed}
-let poolLength = 25;
-let currentFile = null;
-let ffmpegInstance = null;
-let hasTriedTranscode = false;
+const $=id=>document.getElementById(id);
+const video=$('video'), overlay=$('overlay'), stageInner=$('stageInner');
+let detector=null,currentPoses=[],selectedTrack=null,calib=null,calibPoints=[],calibMode=false;
+let walls=[],wallMode=false,analysisData=[],currentFile=null,objectUrl=null;
 
-// ---------- setup ----------
-$('fileInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  currentFile = file;
-  hasTriedTranscode = false;
-  $('videoError').textContent = '';
-  $('convertWrap').style.display = 'none';
-  loadIntoPlayer(file);
-});
+function setStep(n){for(let i=1;i<=5;i++){const e=$('s'+i);e.classList.toggle('active',i===n);e.classList.toggle('done',i<n)}}
+function status(id,msg){$(id).textContent=msg}
+function resize(){if(!video.videoWidth)return;overlay.width=video.videoWidth;overlay.height=video.videoHeight;stageInner.style.aspectRatio=video.videoWidth+'/'+video.videoHeight;draw()}
+window.addEventListener('resize',resize);
 
-function loadIntoPlayer(fileOrBlob){
-  video.src = URL.createObjectURL(fileOrBlob);
-  $('stage').style.display = 'block';
-  $('videoControls').style.display = 'flex';
-
-  let shown = false;
-  const showOnce = () => {
-    if (shown) return;
-    shown = true;
-    resizeCanvas();
-    $('selectPanel').style.display = 'block';
-    setStep(2);
-    forceFirstFramePaint();
-  };
-  video.addEventListener('loadedmetadata', showOnce);
-  video.addEventListener('loadeddata', showOnce);
-  video.addEventListener('canplay', showOnce);
-  video.addEventListener('error', onVideoError);
-}
-
-async function onVideoError(){
-  if (hasTriedTranscode || !currentFile){
-    const codes = {1:'Loading aborted',2:'Network error',3:'This file could not be decoded',4:'This video format/codec is not supported by this browser'};
-    const msg = video.error ? (codes[video.error.code] || 'Unknown error') : 'Unknown error';
-    $('videoError').textContent = `Video still failed after automatic conversion: ${msg}. The file may be corrupted, or use a codec ffmpeg can't decode (rare, e.g. some AV1 variants). Try re-exporting it with HandBrake first.`;
-    $('convertWrap').style.display = 'none';
-    return;
-  }
-  hasTriedTranscode = true;
-  $('videoError').textContent = '';
-  $('convertWrap').style.display = 'block';
-  $('convertStatus').textContent = 'This browser can\u2019t play this file directly \u2014 converting it to a standard format in your browser (first run downloads a ~25MB engine, one time only)...';
-  try {
-    const blob = await transcodeFile(currentFile);
-    $('convertStatus').textContent = 'Conversion complete \u2014 loading video...';
-    $('convertBar').style.width = '100%';
-    loadIntoPlayer(blob);
-    setTimeout(()=>{ $('convertWrap').style.display = 'none'; }, 1500);
-  } catch (err){
-    console.error(err);
-    $('convertStatus').textContent = '';
-    $('convertWrap').style.display = 'none';
-    $('videoError').textContent = `Automatic conversion failed: ${err.message||err}. Try converting the file externally with HandBrake (Fast 1080p30 preset) and re-uploading.`;
-  }
-}
-
-async function ensureFfmpeg(){
-  if (ffmpegInstance) return ffmpegInstance;
-  await ensureFfmpegLibLoaded();
-  const { createFFmpeg } = FFmpeg;
-  ffmpegInstance = createFFmpeg({
-    log: false,
-    corePath: await pickWorkingUrl([
-      'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-      'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-    ]),
-    progress: ({ ratio }) => {
-      if (ratio >= 0 && ratio <= 1){
-        $('convertBar').style.width = `${Math.round(ratio*100)}%`;
-        $('convertStatus').textContent = `Converting... ${Math.round(ratio*100)}%`;
-      }
-    }
-  });
-  await ffmpegInstance.load();
-  return ffmpegInstance;
-}
-
-// Loads the ffmpeg.wasm UMD script dynamically, trying multiple CDNs in case
-// one is blocked (ad blockers, corporate networks, or a CDN having a bad day).
-let ffmpegLibLoadPromise = null;
-function ensureFfmpegLibLoaded(){
-  if (window.FFmpeg) return Promise.resolve();
-  if (ffmpegLibLoadPromise) return ffmpegLibLoadPromise;
-  const sources = [
-    'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js',
-    'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js'
-  ];
-  ffmpegLibLoadPromise = (async () => {
-    let lastErr = null;
-    for (const src of sources){
-      try {
-        await loadScriptTag(src);
-        if (window.FFmpeg) return;
-      } catch (e){ lastErr = e; }
-    }
-    throw new Error('Could not load the ffmpeg.wasm library from any CDN (unpkg or jsdelivr both failed). This is likely a network restriction, VPN, or ad blocker on this network — try a different network, or disable content blockers for this page.');
-  })();
-  return ffmpegLibLoadPromise;
-}
-
-function loadScriptTag(src){
-  return new Promise((resolve, reject)=>{
-    const s = document.createElement('script');
-    s.src = src;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('Failed to load '+src));
-    document.head.appendChild(s);
-  });
-}
-
-// Returns the first URL that actually responds (HEAD/GET), so we don't hand
-// ffmpeg a corePath that 404s partway through loading.
-async function pickWorkingUrl(candidates){
-  for (const url of candidates){
-    try {
-      const res = await fetch(url, { method: 'HEAD' });
-      if (res.ok) return url;
-    } catch(e){ /* try next */ }
-  }
-  return candidates[0]; // fall back to first even if HEAD check failed (some CDNs block HEAD)
-}
-
-async function transcodeFile(file){
-  const { fetchFile } = FFmpeg;
-  const ff = await ensureFfmpeg();
-  const inName = 'input_' + (file.name.replace(/[^a-z0-9.]/gi,'_') || 'video');
-  ff.FS('writeFile', inName, await fetchFile(file));
-  await ff.run('-i', inName, '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', 'output.mp4');
-  const data = ff.FS('readFile', 'output.mp4');
-  try { ff.FS('unlink', inName); ff.FS('unlink', 'output.mp4'); } catch(e){}
-  return new Blob([data.buffer], { type: 'video/mp4' });
-}
-
-function resizeCanvas(){
-  overlay.width = video.videoWidth;
-  overlay.height = video.videoHeight;
-  stageInner.style.aspectRatio = `${video.videoWidth}/${video.videoHeight}`;
-}
-window.addEventListener('resize', ()=>{ if(video.videoWidth) resizeCanvas(); });
-
-// Some browsers (esp. Chrome/Safari) leave <video> blank/black until playback
-// starts or you seek, even after metadata is loaded. Force a frame to paint.
-function forceFirstFramePaint(){
-  const tryPlay = video.play();
-  if (tryPlay && tryPlay.then){
-    tryPlay.then(()=>{
-      video.pause();
-      video.currentTime = 0;
-    }).catch(()=>{
-      // autoplay blocked — fall back to a tiny seek, which usually still paints a frame
-      video.currentTime = 0.03;
-    });
-  } else {
-    video.currentTime = 0.03;
-  }
-}
-
-$('playPause').onclick = ()=> video.paused ? video.play() : video.pause();
-$('stepBack').onclick = ()=> {
-  const cur = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-  try { video.currentTime = Math.max(0, cur - 0.1); } catch(e){ console.warn(e); }
+$('fileInput').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;currentFile=f;
+  if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(f);
+  video.src=objectUrl;$('stage').classList.remove('hidden');$('videoControls').classList.remove('hidden');$('selectPanel').classList.remove('hidden');
+  video.onloadedmetadata=()=>{resize();$('videoInfo').textContent=`${video.videoWidth}×${video.videoHeight} · ${format(video.duration)} · ${f.name}`;setStep(2)}
+  video.onerror=()=>status('videoError','Browser could not decode this video. Re-export it as H.264 MP4 and try again.');
 };
-$('stepFwd').onclick = ()=> {
-  const cur = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-  const dur = Number.isFinite(video.duration) ? video.duration : cur + 0.1;
-  try { video.currentTime = Math.min(dur, cur + 0.1); } catch(e){ console.warn(e); }
-};
-video.addEventListener('timeupdate', ()=> { $('timeLabel').textContent = video.currentTime.toFixed(2)+'s'; });
+video.ontimeupdate=()=>{$('time').textContent=`${video.currentTime.toFixed(2)} / ${Number.isFinite(video.duration)?video.duration.toFixed(2):'?'} s`;draw()};
+$('play').onclick=()=>video.paused?video.play():video.pause();
+$('back').onclick=()=>video.currentTime=Math.max(0,video.currentTime-.1);
+$('forward').onclick=()=>video.currentTime=Math.min(video.duration||1,video.currentTime+.1);
+function frameStep(dir){const fps=video.getVideoPlaybackQuality?.().totalVideoFrames?30:30;video.currentTime=Math.max(0,Math.min(video.duration||1,video.currentTime+dir/fps))}
+$('frameBack').onclick=()=>frameStep(-1);$('frameForward').onclick=()=>frameStep(1);
+function format(s){if(!Number.isFinite(s))return '—';return `${Math.floor(s/60)}:${(s%60).toFixed(2).padStart(5,'0')}`}
 
-function setStep(n){
-  for(let i=1;i<=5;i++) $('step'+i).classList.toggle('active', i===n);
-}
-
-// ---------- model ----------
 async function ensureDetector(){
-  if (detector) return detector;
-  $('detectStatus').textContent = 'Loading pose model (first time only)...';
-  await tf.setBackend('webgl');
-  await tf.ready();
-  detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, {
-    modelType: poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING
-  });
-  $('detectStatus').textContent = 'Model ready.';
-  return detector;
+ if(detector)return detector;
+ status('detectStatus','Loading MoveNet pose model…');
+ await tf.setBackend('webgl');await tf.ready();
+ detector=await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet,{modelType:poseDetection.movenet.modelType.MULTIPOSE_LIGHTNING});
+ $('modelBadge').textContent='Model: MoveNet ready';status('detectStatus','Model ready.');
+ return detector;
 }
-
-// draw current video frame to an offscreen canvas for pose-detection input
-function grabFrameCanvas(){
-  const c = document.createElement('canvas');
-  c.width = video.videoWidth; c.height = video.videoHeight;
-  c.getContext('2d').drawImage(video, 0, 0);
-  return c;
+function frameCanvas(){const c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;c.getContext('2d').drawImage(video,0,0);return c}
+function centroid(kps,conf=.3){
+ const names=['left_hip','right_hip'];const pts=kps.filter(k=>names.includes(k.name)&&k.score>=conf);
+ const q=pts.length?pts:kps.filter(k=>k.score>=conf);if(!q.length)return null;
+ return {x:q.reduce((a,k)=>a+k.x,0)/q.length,y:q.reduce((a,k)=>a+k.y,0)/q.length}
 }
-
-function centroid(kps){
-  // prefer hips, fall back to all keypoints
-  const hips = kps.filter(k => (k.name==='left_hip'||k.name==='right_hip') && k.score>0.3);
-  const pts = hips.length ? hips : kps.filter(k=>k.score>0.3);
-  if (!pts.length) return null;
-  const x = pts.reduce((s,k)=>s+k.x,0)/pts.length;
-  const y = pts.reduce((s,k)=>s+k.y,0)/pts.length;
-  return {x,y};
+function screenPoint(e){const r=overlay.getBoundingClientRect();return{x:(e.clientX-r.left)*overlay.width/r.width,y:(e.clientY-r.top)*overlay.height/r.height}}
+function draw(){
+ const c=overlay.getContext('2d');c.clearRect(0,0,overlay.width,overlay.height);
+ currentPoses.forEach((p,i)=>{const q=centroid(p.keypoints,Number($('confidence').value)||.3);if(!q)return;
+  c.beginPath();c.arc(q.x,q.y,i===selectedTrack?.idx?16:12,0,Math.PI*2);c.strokeStyle=i===selectedTrack?.idx?'#52e0ce':'#ff6b6b';c.lineWidth=3;c.stroke();
+ });
+ if(calibPoints.length){c.strokeStyle='#ffb454';c.fillStyle='#ffb454';c.lineWidth=3;
+  calibPoints.forEach(p=>{c.beginPath();c.arc(p.x,p.y,6,0,Math.PI*2);c.fill()});
+  if(calibPoints.length===2){c.beginPath();c.moveTo(calibPoints[0].x,calibPoints[0].y);c.lineTo(calibPoints[1].x,calibPoints[1].y);c.stroke()}
+ }
+ if(walls.length){c.strokeStyle='#79a9ff';c.fillStyle='#79a9ff';c.lineWidth=4;
+  walls.forEach((p,i)=>{c.beginPath();c.moveTo(p.x,0);c.lineTo(p.x,overlay.height);c.stroke();c.font='bold 16px sans-serif';c.fillText(i===0?'WALL A':'WALL B',p.x+7,25)})
+ }
 }
+$('detect').onclick=async()=>{
+ await ensureDetector();currentPoses=await detector.estimatePoses(frameCanvas());overlay.classList.add('interactive');
+ status('detectStatus',`Found ${currentPoses.length} person(s). Click the swimmer you want to track.`);draw()
+};
+overlay.onclick=e=>{
+ const p=screenPoint(e);
+ if(calibMode){calibPoints.push(p);calibMode=calibPoints.length<2;if(calibPoints.length===2){
+   const meters=parseFloat($('calibMeters').value)||25;const px=Math.hypot(calibPoints[1].x-calibPoints[0].x,calibPoints[1].y-calibPoints[0].y);
+   calib={p1:calibPoints[0],p2:calibPoints[1],meters,pxPerM:px/meters};overlay.classList.remove('interactive');
+   status('calibStatus',`Calibration: ${px.toFixed(1)} px = ${meters} m (${calib.pxPerM.toFixed(2)} px/m).`);
+   $('racePanel').classList.remove('hidden');$('runPanel').classList.remove('hidden');setStep(4)
+ }else status('calibStatus','Click point 2.');draw();return}
+ if(wallMode){if(walls.length<2)walls.push(p);$('wallStatus').textContent=`${walls.length} / 2 walls`;draw();
+   if(walls.length===2){wallMode=false;overlay.classList.remove('interactive');$('wallButtons').classList.remove('hidden');status('wallStatus','Walls marked');setStep(5)}return}
+ if(!currentPoses.length)return;
+ let best=-1,bd=Infinity;currentPoses.forEach((pose,i)=>{const q=centroid(pose.keypoints,Number($('confidence').value)||.3);if(!q)return;const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<bd){bd=d;best=i}});
+ if(best>=0){const q=centroid(currentPoses[best].keypoints);selectedTrack={idx:best,last:q,history:[]};overlay.classList.remove('interactive');$('calibPanel').classList.remove('hidden');setStep(3);draw()}
+};
+$('startCalib').onclick=()=>{calibPoints=[];calibMode=true;overlay.classList.add('interactive');status('calibStatus','Click point 1, then point 2 on the video.');draw()};
+$('markWalls').onclick=()=>{walls=[];wallMode=true;overlay.classList.add('interactive');$('wallStatus').textContent='0 / 2 walls';status('wallStatus','Click the first wall, then the second wall.');draw()};
+$('clearWalls').onclick=()=>{walls=[];$('wallButtons').classList.add('hidden');$('wallStatus').textContent='0 / 2 walls';draw()};
 
-$('detectBtn').onclick = async () => {
-  await ensureDetector();
-  const c = grabFrameCanvas();
-  currentPoses = await detector.estimatePoses(c);
-  $('detectStatus').textContent = `Found ${currentPoses.length} person(es). Click on the swimmer in the video to select.`;
-  overlay.classList.add('interactive');
-  drawOverlay(currentPoses, null);
+function axisM(pt){
+ if(!calib)return 0;let p1=calib.p1,p2=calib.p2;
+ if($('axisMode').value==='horizontal')p2={x:p1.x+1,y:p1.y};
+ const vx=p2.x-p1.x,vy=p2.y-p1.y,L=Math.hypot(vx,vy)||1;
+ return ((pt.x-p1.x)*(vx/L)+(pt.y-p1.y)*(vy/L))/calib.pxPerM
+}
+function wallAxisPositions(){return walls.map(axisM).sort((a,b)=>a-b)}
+function nearestPose(poses,last,conf){
+ let best=null,score=Infinity;
+ for(const p of poses){const q=centroid(p.keypoints,conf);if(!q)continue;
+   if(!last)return {p,q,score:0};
+   const d=Math.hypot(q.x-last.x,q.y-last.y);
+   // Mild body-shape continuity bonus.
+   const torso=p.keypoints.filter(k=>['left_shoulder','right_shoulder','left_hip','right_hip'].includes(k.name)&&k.score>=conf);
+   const spread=torso.length>=2?Math.hypot(torso[0].x-torso[1].x,torso[0].y-torso[1].y):0;
+   const s=d-Math.min(spread,150)*.03;
+   if(s<score){score=s;best={p,q,score:s}}
+ }return best
+}
+function seek(t){return new Promise(resolve=>{let done=false;const finish=()=>{if(done)return;done=true;video.removeEventListener('seeked',finish);clearTimeout(to);resolve()};const to=setTimeout(finish,1200);video.addEventListener('seeked',finish,{once:true});video.currentTime=Math.max(0,Math.min(video.duration||t,t))})}
+
+$('run').onclick=async()=>{
+ if(!selectedTrack||!calib){status('runStatus','Select the swimmer and calibrate first.');return}
+ await ensureDetector();
+ const sample=Math.max(40,Number($('sampleMs').value)||80),dur=Number.isFinite(video.duration)?video.duration:0;
+ if(!dur){status('runStatus','Video duration is unavailable.');return}
+ const times=[];for(let t=0;t<dur;t+=sample/1000)times.push(t);
+ analysisData=[];$('run').disabled=true;$('progress').style.width='0%';status('runStatus','Analyzing whole video…');
+ let last=null;
+ for(let i=0;i<times.length;i++){
+   await seek(times[i]);const poses=await detector.estimatePoses(frameCanvas());const hit=nearestPose(poses,last,Number($('confidence').value)||.3);
+   if(hit){last=hit.q;analysisData.push({t:times[i],xM:axisM(hit.q),xPx:hit.q.x,yPx:hit.q.y,kps:hit.p.keypoints,trackScore:hit.score})}
+   $('progress').style.width=((i+1)/times.length*100).toFixed(1)+'%';status('runStatus',`Frame ${i+1}/${times.length} · ${((i+1)/times.length*100).toFixed(0)}%`);
+   if(i%4===0)await new Promise(r=>setTimeout(r,0))
+ }
+ compute();$('run').disabled=false;status('runStatus',`Done. ${analysisData.length} tracked samples from ${format(dur)} video.`);$('exportCsv').disabled=false;$('exportJson').disabled=false;
 };
 
-overlay.addEventListener('click', (e)=>{
-  if (calibClicksLeft > 0){
-    handleCalibClick(e);
-    return;
-  }
-  if (!currentPoses.length) return;
-  const rect = overlay.getBoundingClientRect();
-  const scaleX = overlay.width / rect.width, scaleY = overlay.height / rect.height;
-  const cx = (e.clientX - rect.left) * scaleX;
-  const cy = (e.clientY - rect.top) * scaleY;
-  let best=null, bestD=Infinity;
-  currentPoses.forEach((p,i)=>{
-    const c = centroid(p.keypoints);
-    if (!c) return;
-    const d = Math.hypot(c.x-cx, c.y-cy);
-    if (d<bestD){bestD=d; best=i;}
-  });
-  if (best===null) return;
-  selectedTrack = { history: [{t: video.currentTime, x: centroid(currentPoses[best].keypoints).x, y: centroid(currentPoses[best].keypoints).y, kps: currentPoses[best].keypoints}] };
-  drawOverlay(currentPoses, best);
-  overlay.classList.remove('interactive');
-  $('calibPanel').style.display = 'block';
-  setStep(3);
-});
-
-function drawOverlay(poses, selectedIdx){
-  const ctx = overlay.getContext('2d');
-  ctx.clearRect(0,0,overlay.width,overlay.height);
-  poses.forEach((p,i)=>{
-    const c = centroid(p.keypoints);
-    if (!c) return;
-    ctx.beginPath();
-    ctx.arc(c.x, c.y, 14, 0, 2*Math.PI);
-    ctx.strokeStyle = i===selectedIdx ? '#4fd1c5' : '#f56565';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    p.keypoints.forEach(k=>{
-      if (k.score>0.3){
-        ctx.beginPath();
-        ctx.arc(k.x,k.y,3,0,2*Math.PI);
-        ctx.fillStyle = i===selectedIdx ? '#4fd1c5' : '#f56565';
-        ctx.fill();
-      }
-    });
-  });
-  if (calibPoints.length){
-    ctx.fillStyle = '#f6ad55';
-    calibPoints.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,6,0,2*Math.PI); ctx.fill(); });
-    if (calibPoints.length===2){
-      ctx.strokeStyle='#f6ad55'; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.moveTo(calibPoints[0].x,calibPoints[0].y); ctx.lineTo(calibPoints[1].x,calibPoints[1].y); ctx.stroke();
-    }
-  }
+function compute(){
+ if(analysisData.length<2)return;
+ for(let i=1;i<analysisData.length;i++){const a=analysisData[i-1],b=analysisData[i],dt=b.t-a.t;b.speed=dt>0?Math.abs(b.xM-a.xM)/dt:0}
+ analysisData[0].speed=0;
+ const lengths=Math.max(1,Math.round((Number($('totalDistance').value)||200)/(Number($('poolLength').value)||25)));
+ const pool=Number($('poolLength').value)||25,tol=Number($('wallTol').value)||1.2;
+ const wallPos=wallAxisPositions();
+ let turns=[];
+ // Wall marking: detect the first sample near either wall after the swimmer has been away from it.
+ if(wallPos.length===2){
+   let armed=true,lastWall=-1;
+   for(let i=1;i<analysisData.length;i++){
+     const x=analysisData[i].xM,near=wallPos.some(w=>Math.abs(x-w)<=tol);
+     if(armed&&near){const w=wallPos.reduce((a,b)=>Math.abs(b-x)<Math.abs(a-x)?b:a);if(Math.abs(w-lastWall)>.5){turns.push({t:analysisData[i].t,xM:x,wall:w});lastWall=w;armed=false}}
+     if(!near)armed=true;
+   }
+ }else{
+   // Fallback: direction reversals.
+   let dir=0;
+   for(let i=1;i<analysisData.length;i++){const dx=analysisData[i].xM-analysisData[i-1].xM;if(Math.abs(dx)<.03)continue;const nd=Math.sign(dx);if(dir&&nd!==dir)turns.push({t:analysisData[i-1].t,xM:analysisData[i-1].xM,wall:null});dir=nd}
+ }
+ const stroke=$('stroke').value;
+ const eventLengths=Array.from({length:lengths},(_,i)=>({
+   number:i+1,stroke:stroke==='im'?['Butterfly','Backstroke','Breaststroke','Freestyle'][Math.min(3,Math.floor(i/(lengths/4)))]:
+     ({freestyle:'Freestyle',backstroke:'Backstroke',breaststroke:'Breaststroke',butterfly:'Butterfly'})[stroke]
+ }));
+ // Estimate one split per detected wall-to-wall interval, with race start at first tracked sample.
+ const events=[];let prevT=analysisData[0].t;
+ turns.forEach((tr,i)=>{events.push({...eventLengths[Math.min(i,eventLengths.length-1)],time:tr.t,split:tr.t-prevT,turn:true});prevT=tr.t});
+ events.push({...eventLengths[Math.min(events.length,eventLengths.length-1)],time:analysisData.at(-1).t,split:analysisData.at(-1).t-prevT,turn:false});
+ const totalTime=analysisData.at(-1).t-analysisData[0].t;
+ const speeds=analysisData.map(d=>d.speed||0),avg=speeds.reduce((a,b)=>a+b,0)/speeds.length,max=Math.max(...speeds);
+ const distance=Math.abs(analysisData.at(-1).xM-analysisData[0].xM)+turns.length*pool;
+ const strokeRate=estimateStrokeRate();
+ const kicks=estimateKicks();
+ $('metrics').innerHTML=[
+   ['Race time',format(totalTime)],['Estimated distance',distance.toFixed(1)+' m'],['Average speed',avg.toFixed(2)+' m/s'],
+   ['Peak speed',max.toFixed(2)+' m/s'],['Detected turns',String(turns.length)],['Stroke rate',strokeRate.toFixed(0)+' cycles/min'],
+   ['Kick activity','~'+kicks],['Event',stroke==='im'?'400/200 IM sequence':' '+eventLengths[0].stroke]
+ ].map(x=>`<div class="metric"><small>${x[0]}</small><b>${x[1]}</b></div>`).join('');
+ renderTable(events);drawSpeed();drawTimeline(events,turns);
+ analysisData._summary={totalTime,distance,avg,max,turns,events,strokeRate,kicks};
 }
-
-// ---------- calibration ----------
-$('calibBtn').onclick = ()=>{
-  calibPoints = [];
-  calibClicksLeft = 2;
-  overlay.classList.add('interactive');
-  $('calibStatus').textContent = 'Click point 1, then point 2 on the video.';
-};
-
-function handleCalibClick(e){
-  const rect = overlay.getBoundingClientRect();
-  const scaleX = overlay.width / rect.width, scaleY = overlay.height / rect.height;
-  const x = (e.clientX-rect.left)*scaleX, y=(e.clientY-rect.top)*scaleY;
-  calibPoints.push({x,y});
-  calibClicksLeft--;
-  drawOverlay(currentPoses, null);
-  if (calibClicksLeft===0){
-    const meters = parseFloat($('calibMeters').value)||25;
-    const pxDist = Math.hypot(calibPoints[1].x-calibPoints[0].x, calibPoints[1].y-calibPoints[0].y);
-    calib = { p1: calibPoints[0], p2: calibPoints[1], meters, pxPerM: pxDist/meters };
-    $('calibStatus').textContent = `Calibrated: ${pxDist.toFixed(0)}px = ${meters}m (${calib.pxPerM.toFixed(1)} px/m).`;
-    overlay.classList.remove('interactive');
-    $('poolPanel').style.display='block';
-    $('runPanel').style.display='block';
-    setStep(4);
-  } else {
-    $('calibStatus').textContent = 'Click point 2.';
-  }
+function estimateStrokeRate(){
+ const vals=[];for(const d of analysisData){const a=d.kps.find(k=>k.name==='left_wrist'),b=d.kps.find(k=>k.name==='right_wrist');if(a?.score>.3&&b?.score>.3)vals.push((a.y+b.y)/2)}
+ if(vals.length<8)return 0;let peaks=0;for(let i=1;i<vals.length-1;i++)if(vals[i]>vals[i-1]&&vals[i]>=vals[i+1])peaks++;
+ const t=analysisData.at(-1).t-analysisData[0].t;return t>0?(peaks/t)*60:0
 }
-
-// project a pixel point onto the calibration axis, return signed meters from p1
-function toAxisMeters(pt){
-  const {p1,p2,pxPerM} = calib;
-  const vx = p2.x-p1.x, vy = p2.y-p1.y;
-  const len = Math.hypot(vx,vy);
-  const ux = vx/len, uy = vy/len;
-  const dx = pt.x-p1.x, dy = pt.y-p1.y;
-  const proj = dx*ux + dy*uy; // px along axis
-  return proj/pxPerM;
+function estimateKicks(){
+ const vals=analysisData.map(d=>{const a=d.kps.find(k=>k.name==='left_ankle'),b=d.kps.find(k=>k.name==='right_ankle');return a?.score>.3&&b?.score>.3?(a.y+b.y)/2:null}).filter(x=>x!=null);
+ let n=0;for(let i=1;i<vals.length-1;i++)if(vals[i]>vals[i-1]&&vals[i]>=vals[i+1])n++;return n
 }
-
-// ---------- full analysis ----------
-// Some MP4 files (common from phone/screen recordings without a "faststart"
-// moov atom) report duration as Infinity or NaN until you seek near the end.
-// This works around that by seeking far forward and reading back where it lands.
-async function getReliableDuration(){
-  if (Number.isFinite(video.duration)) return video.duration;
-  const wasTime = video.currentTime;
-  await seekTo(1e7).catch(()=>{});
-  const d = Number.isFinite(video.duration) ? video.duration : video.currentTime;
-  await seekTo(wasTime).catch(()=>{});
-  return Number.isFinite(d) && d > 0 ? d : 60; // last-resort fallback
+function renderTable(events){
+ const rows=events.map((e,i)=>`<tr><td>${e.number}</td><td>${e.stroke}</td><td>${e.time.toFixed(2)}s</td><td>${e.split.toFixed(2)}s</td><td>${e.turn?'Yes':'—'}</td></tr>`).join('');
+ $('splitsWrap').innerHTML=`<table><tr><th>Length</th><th>Stroke</th><th>Race time</th><th>Split</th><th>Wall</th></tr>${rows}</table>`;
 }
-
-$('runBtn').onclick = async () => {
-  if (!selectedTrack || !calib){ $('runStatus').textContent='Select a swimmer and calibrate first.'; return; }
-  await ensureDetector();
-  poolLength = parseFloat($('poolLength').value)||25;
-  const sampleMs = Math.max(50, parseFloat($('sampleMs').value)||100);
-  $('runStatus').textContent = 'Checking video duration...';
-  const duration = await getReliableDuration();
-  const times = [];
-  for (let t=0; t<duration; t+=sampleMs/1000) times.push(t);
-
-  $('progressWrap').style.display='block';
-  $('runBtn').disabled = true;
-  analysisData = [];
-  let lastPos = null;
-
-  for (let i=0;i<times.length;i++){
-    const t = times[i];
-    await seekTo(t);
-    const c = grabFrameCanvas();
-    const poses = await detector.estimatePoses(c);
-    // track: pick pose closest to lastPos (or to last known position)
-    let chosen = null;
-    if (poses.length){
-      if (lastPos){
-        let bestD=Infinity;
-        poses.forEach(p=>{
-          const cc = centroid(p.keypoints);
-          if (!cc) return;
-          const d = Math.hypot(cc.x-lastPos.x, cc.y-lastPos.y);
-          if (d<bestD){bestD=d; chosen=p;}
-        });
-      } else {
-        chosen = poses[0];
-      }
-    }
-    if (chosen){
-      const cc = centroid(chosen.keypoints);
-      if (cc){
-        lastPos = cc;
-        const axisM = toAxisMeters(cc);
-        analysisData.push({ t, xM: axisM, kps: chosen.keypoints });
-      }
-    }
-    $('progressBar').style.width = `${Math.round((i+1)/times.length*100)}%`;
-    $('runStatus').textContent = `Processing ${i+1}/${times.length} frames...`;
-  }
-
-  computeMetrics();
-  $('runBtn').disabled = false;
-  $('runStatus').textContent = 'Done.';
-  $('exportCsv').disabled = false;
-};
-
-function seekTo(t){
-  return new Promise((res)=>{
-    const onSeek = ()=>{ video.removeEventListener('seeked', onSeek); clearTimeout(timer); res(); };
-    video.addEventListener('seeked', onSeek);
-    const timer = setTimeout(()=>{ video.removeEventListener('seeked', onSeek); res(); }, 1500);
-    video.currentTime = t;
-  });
+function drawSpeed(){
+ const c=$('speedChart'),ctx=c.getContext('2d');c.width=c.clientWidth*devicePixelRatio;c.height=150*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);
+ const W=c.clientWidth,H=150;ctx.clearRect(0,0,W,H);if(!analysisData.length)return;const max=Math.max(...analysisData.map(d=>d.speed||0),.1);
+ ctx.beginPath();analysisData.forEach((d,i)=>{const x=i/(analysisData.length-1)*W,y=H-8-(d.speed/max)*(H-18);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.strokeStyle='#52e0ce';ctx.lineWidth=2;ctx.stroke();
+ ctx.fillStyle='#8ea4c5';ctx.font='10px sans-serif';ctx.fillText('speed (m/s)',8,13)
 }
-
-// ---------- metrics ----------
-function computeMetrics(){
-  // speed
-  for (let i=1;i<analysisData.length;i++){
-    const a=analysisData[i-1], b=analysisData[i];
-    const dt = b.t-a.t;
-    b.speed = dt>0 ? Math.abs(b.xM-a.xM)/dt : 0;
-  }
-  analysisData[0].speed = 0;
-
-  // splits: detect direction reversals / wall proximity crossings
-  const splits = [];
-  let lastExtreme = analysisData[0].xM;
-  let lastTime = analysisData[0].t;
-  let dir = null;
-  for (let i=1;i<analysisData.length;i++){
-    const dx = analysisData[i].xM - analysisData[i-1].xM;
-    const newDir = dx>0?1:(dx<0?-1:dir);
-    if (dir!==null && newDir!==null && newDir!==dir){
-      // direction changed => likely a wall turn
-      splits.push({ t: analysisData[i-1].t, xM: analysisData[i-1].xM, splitTime: analysisData[i-1].t - lastTime });
-      lastTime = analysisData[i-1].t;
-    }
-    if (newDir!==null) dir=newDir;
-  }
-  splits.push({ t: analysisData[analysisData.length-1].t, xM: analysisData[analysisData.length-1].xM, splitTime: analysisData[analysisData.length-1].t - lastTime });
-
-  // ---- assign stroke per length using user-provided info instead of guessing ----
-  const strokeChoice = $('strokeSelect').value;
-  const totalDistance = parseFloat($('totalDistance').value) || (poolLength * splits.length);
-  const expectedLengths = Math.max(1, Math.round(totalDistance / poolLength));
-  const IM_ORDER = ['Butterfly','Backstroke','Breaststroke','Freestyle'];
-  const strokeLabels = {freestyle:'Freestyle', backstroke:'Backstroke', breaststroke:'Breaststroke', butterfly:'Butterfly'};
-
-  splits.forEach((s,i)=>{
-    if (strokeChoice === 'im'){
-      const legSize = expectedLengths / 4;
-      const legIdx = Math.min(3, Math.floor(i / Math.max(legSize,0.0001)));
-      s.stroke = IM_ORDER[legIdx];
-    } else if (strokeChoice !== 'auto'){
-      s.stroke = strokeLabels[strokeChoice] || strokeChoice;
-    } else {
-      s.stroke = null; // filled in below from the heuristic
-    }
-  });
-
-  if (splits.length !== expectedLengths){
-    $('runStatus').textContent = `Note: detected ${splits.length} length(s) from wall turns, but ${totalDistance}m over a ${poolLength}m pool implies ${expectedLengths}. Check the splits table below against the video — turn detection can miscount if the calibration axis or tracking wobbled.`;
-  }
-
-  // stroke rate + classification via wrist vertical oscillation
-  const wristY = analysisData.map(d=>{
-    const lw = d.kps.find(k=>k.name==='left_wrist');
-    const rw = d.kps.find(k=>k.name==='right_wrist');
-    return { t:d.t, l: lw&&lw.score>0.3?lw.y:null, r: rw&&rw.score>0.3?rw.y:null };
-  });
-  const { strokeRateSpm, symmetry } = estimateStrokeRate(wristY);
-  const heuristicStroke = classifyStroke(symmetry, analysisData);
-  if (strokeChoice === 'auto'){
-    splits.forEach(s => { s.stroke = s.stroke || heuristicStroke; });
-  }
-  const headlineStroke = strokeChoice === 'auto' ? heuristicStroke
-    : strokeChoice === 'im' ? 'Individual Medley (Fly \u2192 Back \u2192 Breast \u2192 Free)'
-    : (strokeLabels[strokeChoice] || strokeChoice);
-
-  // ankle vertical oscillation -> kick count (rough, whole-video estimate)
-  const ankleY = analysisData.map(d=>{
-    const la = d.kps.find(k=>k.name==='left_ankle');
-    const ra = d.kps.find(k=>k.name==='right_ankle');
-    const vals=[la,ra].filter(k=>k&&k.score>0.3).map(k=>k.y);
-    return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
-  });
-  const kicks = countPeaks(ankleY.filter(v=>v!==null));
-
-  renderResults({splits, strokeRateSpm, stroke: headlineStroke, kicks});
-  drawSpeedChart();
+function drawTimeline(events,turns){
+ const c=$('timeline'),ctx=c.getContext('2d');c.width=c.clientWidth*devicePixelRatio;c.height=52*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);
+ const W=c.clientWidth,H=52;ctx.clearRect(0,0,W,H);const T=analysisData.at(-1).t-analysisData[0].t||1;
+ ctx.fillStyle='#1d304b';ctx.fillRect(0,22,W,8);
+ events.forEach((e,i)=>{const x=Math.min(W,e.time/T*W);ctx.fillStyle='#79a9ff';ctx.fillRect(x,16,2,20);ctx.fillStyle='#8ea4c5';ctx.font='9px sans-serif';ctx.fillText(e.stroke.slice(0,3),Math.min(W-20,x+3),12)});
 }
+function download(name,text,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+$('exportCsv').onclick=()=>{let s='time_s,position_m,speed_mps,track_score\\n';analysisData.forEach(d=>s+=`${d.t.toFixed(3)},${d.xM.toFixed(3)},${(d.speed||0).toFixed(3)},${Number.isFinite(d.trackScore)?d.trackScore.toFixed(3):''}\\n`);download('swim_analysis.csv',s,'text/csv')};
+$('exportJson').onclick=()=>download('swim_analysis.json',JSON.stringify({summary:analysisData._summary||{},samples:analysisData},null,2),'application/json');
 
-function estimateStrokeRate(wristY){
-  const l = wristY.map(w=>w.l).filter(v=>v!==null);
-  const r = wristY.map(w=>w.r).filter(v=>v!==null);
-  const lPeaks = countPeaks(l), rPeaks = countPeaks(r);
-  const totalTime = wristY.length ? (wristY[wristY.length-1].t - wristY[0].t) : 1;
-  const cyclesPerSec = ((lPeaks+rPeaks)/2) / Math.max(totalTime,0.01);
-  const strokeRateSpm = cyclesPerSec*60;
-  // symmetry: how correlated are left/right vertical motion (simultaneous = high corr => fly/breast; alternating = low/negative corr => free/back)
-  const n = Math.min(l.length, r.length);
-  let corr = 0;
-  if (n>3){
-    const la = l.slice(0,n), ra = r.slice(0,n);
-    const lm = la.reduce((s,v)=>s+v,0)/n, rm = ra.reduce((s,v)=>s+v,0)/n;
-    let num=0, dl=0, dr=0;
-    for (let i=0;i<n;i++){ num += (la[i]-lm)*(ra[i]-rm); dl += (la[i]-lm)**2; dr += (ra[i]-rm)**2; }
-    corr = num/Math.sqrt(dl*dr || 1);
-  }
-  return { strokeRateSpm, symmetry: corr };
-}
-
-function countPeaks(series){
-  if (series.length<3) return 0;
-  // simple smoothing
-  const smoothed = series.map((v,i)=>{
-    const a=series[Math.max(0,i-1)], b=series[Math.min(series.length-1,i+1)];
-    return (a+v+b)/3;
-  });
-  const mean = smoothed.reduce((s,v)=>s+v,0)/smoothed.length;
-  const std = Math.sqrt(smoothed.reduce((s,v)=>s+(v-mean)**2,0)/smoothed.length);
-  const thresh = std*0.4;
-  let count=0;
-  for (let i=1;i<smoothed.length-1;i++){
-    if (smoothed[i]>smoothed[i-1] && smoothed[i]>=smoothed[i+1] && Math.abs(smoothed[i]-mean)>thresh) count++;
-  }
-  return count;
-}
-
-function classifyStroke(symmetry, data){
-  // symmetry near +1 => arms move together (butterfly/breaststroke)
-  // symmetry near -1 or low => alternating arms (freestyle/backstroke)
-  if (symmetry > 0.3){
-    return 'Butterfly or Breaststroke (simultaneous arm motion detected — check body angle to tell them apart: continuous undulation = fly, glide-and-kick = breast)';
-  } else {
-    return 'Freestyle or Backstroke (alternating arm motion detected — check if face-down or face-up on video)';
-  }
-}
-
-function renderResults({splits, strokeRateSpm, stroke, kicks}){
-  const m = $('metrics');
-  const avgSpeed = analysisData.reduce((s,d)=>s+(d.speed||0),0)/analysisData.length;
-  m.innerHTML = `
-    <div class="metric"><span>Avg speed</span><b>${avgSpeed.toFixed(2)} m/s</b></div>
-    <div class="metric"><span>Stroke rate (est.)</span><b>${strokeRateSpm.toFixed(0)} cycles/min</b></div>
-    <div class="metric"><span>Likely stroke</span><b style="text-align:right;max-width:180px;">${stroke}</b></div>
-    <div class="metric"><span>Kick count (whole clip, rough)</span><b>${kicks}</b></div>
-    <div class="metric"><span>Detected wall turns</span><b>${splits.length-1}</b></div>
-  `;
-  let rows = splits.map((s,i)=>`<tr><td>${i===splits.length-1?'Finish':'Turn '+(i+1)}</td><td>${s.stroke||'—'}</td><td>${s.t.toFixed(2)}s</td><td>${s.splitTime.toFixed(2)}s</td></tr>`).join('');
-  $('splitsTableWrap').innerHTML = `
-    <table style="margin-top:10px;">
-      <tr><th>Event</th><th>Stroke</th><th>Time</th><th>Split</th></tr>
-      ${rows}
-    </table>`;
-}
-
-function drawSpeedChart(){
-  const c = $('speedChart');
-  c.width = c.clientWidth; c.height = 120;
-  const ctx = c.getContext('2d');
-  ctx.clearRect(0,0,c.width,c.height);
-  if (!analysisData.length) return;
-  const speeds = analysisData.map(d=>d.speed||0);
-  const maxS = Math.max(...speeds, 0.1);
-  ctx.strokeStyle = '#4fd1c5';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  analysisData.forEach((d,i)=>{
-    const x = (i/(analysisData.length-1))*c.width;
-    const y = c.height - (d.speed/maxS)*c.height*0.9 - 5;
-    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
-  });
-  ctx.stroke();
-}
-
-$('exportCsv').onclick = ()=>{
-  let csv = 'time_s,position_m,speed_mps\n';
-  analysisData.forEach(d=> csv += `${d.t.toFixed(3)},${d.xM.toFixed(3)},${(d.speed||0).toFixed(3)}\n`);
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'swim_analysis.csv';
-  a.click();
-};
+setStep(1);
 </script>
 </body>
 </html>
