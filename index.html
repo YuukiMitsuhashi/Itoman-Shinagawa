@@ -54,9 +54,11 @@
   small.note{color:var(--sub);font-size:11px;display:block;margin-top:4px;line-height:1.4;}
   #speedChart{width:100%;height:120px;background:var(--panel2);border-radius:8px;}
   .markList{list-style:none;margin:8px 0 0;padding:0;font-size:12px;}
-  .markList li{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:var(--panel2);border-radius:6px;margin-bottom:5px;border-left:3px solid var(--line);}
+  .markList li{display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--panel2);border-radius:6px;margin-bottom:5px;border-left:3px solid var(--line);gap:8px;}
   .markList li.a{border-left-color:var(--wallA);}
   .markList li.b{border-left-color:var(--wallB);}
+  .markList img{width:64px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0;}
+  .markList .markInfo{flex:1;}
 </style>
 </head>
 <body>
@@ -145,16 +147,30 @@
     <div class="panel" id="wallPanel" style="display:none;">
       <h2>4. Mark the walls</h2>
       <small class="note">
-        Each wall is a line, not just a point — click <b>two points along the wall</b> (it can be angled, doesn't need to be vertical or horizontal). Mark each wall at a moment in the video where it's clearly visible. If your camera pans or zooms, add the <i>same</i> wall again at a later timestamp where it reappears — the tool will interpolate its on-screen position between your marks for every frame in between. A static camera only needs one mark per wall.
+        The two walls almost always show up at <b>different moments</b> in your video (camera pans, zooms, or the far wall just isn't visible until later). So this is two separate, independent steps — scrub to a completely different timestamp for each one if you need to. Each wall is marked as a <b>line at any angle</b> (two clicks — not restricted to vertical or horizontal).
       </small>
-      <div class="row" style="margin-top:8px;">
-        <button class="wallA" id="markWallABtn">Mark Wall A at current frame</button>
-        <button class="wallB" id="markWallBBtn">Mark Wall B at current frame</button>
+
+      <div style="margin-top:14px;padding:10px;border:1px solid var(--wallA);border-radius:8px;">
+        <div class="row" style="margin-bottom:6px;justify-content:space-between;">
+          <b style="color:var(--wallA);">Time frame 1 — Wall A</b>
+        </div>
+        <small class="note">1. Scrub/play the video above to the moment Wall A is visible.  2. Click the button below.  3. Click two points along Wall A, at whatever angle it appears.</small>
+        <div class="row" style="margin-top:8px;"><button class="wallA" id="markWallABtn">I'm on Wall A's frame — mark it</button></div>
+        <div id="wallAList"></div>
       </div>
-      <div class="status" id="wallStatus"></div>
-      <div id="wallAList"></div>
-      <div id="wallBList"></div>
+
+      <div style="margin-top:10px;padding:10px;border:1px solid var(--wallB);border-radius:8px;">
+        <div class="row" style="margin-bottom:6px;justify-content:space-between;">
+          <b style="color:var(--wallB);">Time frame 2 — Wall B</b>
+        </div>
+        <small class="note">Now scrub to a <b>different</b> moment — whenever Wall B (the other end of the pool) becomes visible — then repeat.</small>
+        <div class="row" style="margin-top:8px;"><button class="wallB" id="markWallBBtn">I'm on Wall B's frame — mark it</button></div>
+        <div id="wallBList"></div>
+      </div>
+
+      <div class="status" id="wallStatus" style="margin-top:8px;"></div>
       <small class="note" id="wallReadyNote"></small>
+      <small class="note">Camera moves more than once? Scrub to any further timestamp and mark that same wall again — each wall's line is interpolated smoothly between all the times you've marked it.</small>
     </div>
 
     <div class="panel" id="runPanel" style="display:none;">
@@ -380,7 +396,7 @@ $('raceContinueBtn').onclick = ()=>{
 $('markWallABtn').onclick = ()=>{
   $('wallStatus').textContent = 'Click two points along Wall A in the video (any angle).';
   beginClickMode('wallA', 2, (pts)=>{
-    wallMarks.A.push({ t: video.currentTime, p1: pts[0], p2: pts[1] });
+    wallMarks.A.push({ t: video.currentTime, p1: pts[0], p2: pts[1], thumb: captureThumbnail() });
     wallMarks.A.sort((a,b)=>a.t-b.t);
     $('wallStatus').textContent = `Wall A marked at ${video.currentTime.toFixed(2)}s.`;
     refreshWallLists();
@@ -391,7 +407,7 @@ $('markWallABtn').onclick = ()=>{
 $('markWallBBtn').onclick = ()=>{
   $('wallStatus').textContent = 'Click two points along Wall B in the video (any angle).';
   beginClickMode('wallB', 2, (pts)=>{
-    wallMarks.B.push({ t: video.currentTime, p1: pts[0], p2: pts[1] });
+    wallMarks.B.push({ t: video.currentTime, p1: pts[0], p2: pts[1], thumb: captureThumbnail() });
     wallMarks.B.sort((a,b)=>a.t-b.t);
     $('wallStatus').textContent = `Wall B marked at ${video.currentTime.toFixed(2)}s.`;
     refreshWallLists();
@@ -399,6 +415,14 @@ $('markWallBBtn').onclick = ()=>{
     drawOverlay();
   });
 };
+
+function captureThumbnail(){
+  const full = grabFrameCanvas();
+  const c = document.createElement('canvas');
+  c.width = 160; c.height = 90;
+  c.getContext('2d').drawImage(full, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.6);
+}
 
 function refreshWallLists(){
   $('wallAList').innerHTML = renderMarkList('A', wallMarks.A);
@@ -414,9 +438,9 @@ function refreshWallLists(){
   });
 }
 function renderMarkList(wallId, marks){
-  if (!marks.length) return `<ul class="markList"><li style="opacity:.5;">No marks for Wall ${wallId} yet</li></ul>`;
+  if (!marks.length) return `<ul class="markList"><li style="opacity:.5;">No time frame marked for Wall ${wallId} yet</li></ul>`;
   return `<ul class="markList">` + marks.map((m,i)=>
-    `<li class="${wallId.toLowerCase()}"><span>Wall ${wallId} @ ${m.t.toFixed(2)}s</span><button class="secondary tiny" data-del="${wallId}:${i}">Remove</button></li>`
+    `<li class="${wallId.toLowerCase()}"><img src="${m.thumb}" alt="Wall ${wallId} frame"><span class="markInfo">Wall ${wallId} @ ${m.t.toFixed(2)}s</span><button class="secondary tiny" data-del="${wallId}:${i}">Remove</button></li>`
   ).join('') + `</ul>`;
 }
 function checkWallsReady(){
