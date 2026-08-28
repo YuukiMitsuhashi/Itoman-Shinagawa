@@ -1,1 +1,117 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swim AI Pro</title>
+<style>
+:root{--bg:#07101d;--p:#0d1829;--p2:#091322;--line:#1d304b;--txt:#edf4ff;--muted:#91a6c5;--a:#52e0ce;--warn:#ffb454}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:Inter,system-ui,sans-serif}
+header{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 18px;gap:12px}h1{font-size:18px;margin:0}.badge{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:4px 8px;border-radius:20px}
+main{max-width:1700px;margin:auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:16px}.card{background:var(--p);border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:14px}h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:0 0 10px}
+.row{display:flex;gap:8px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+input,select,button{font:inherit}input,select{width:100%;background:var(--p2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px}
+button{background:var(--a);border:0;border-radius:8px;padding:9px 12px;font-weight:750;cursor:pointer}button.secondary{background:var(--p2);color:var(--txt);border:1px solid var(--line)}button:disabled{opacity:.45}
+label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}.hint,.status{font-size:11px;color:var(--muted);line-height:1.45;margin-top:7px}
+#preview{width:100%;aspect-ratio:16/9;background:#000;border-radius:10px;display:block}.timeline{width:100%;margin-top:10px}
+.range{display:grid;grid-template-columns:80px 1fr 80px;gap:8px;align-items:center}.range input{padding:7px}
+table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:7px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.kpi{background:var(--p2);border:1px solid var(--line);border-radius:9px;padding:9px}.kpi small{color:var(--muted);display:block}.kpi b{display:block;margin-top:3px;color:var(--a);font-size:16px}
+.progress{height:6px;background:var(--p2);border-radius:5px;overflow:hidden;margin-top:8px}.progress i{display:block;height:100%;width:0;background:var(--a)}
+.hidden{display:none!important}
+@media(max-width:1050px){main{grid-template-columns:1fr}}@media(max-width:650px){.grid2,.grid3{grid-template-columns:1fr}.range{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><h1>🏊 Swim AI Pro</h1><span class="badge" id="state">Idle</span></header>
+<main>
+<section>
+<div class="card">
+<h2>1. YouTube source</h2>
+<div class="row"><input id="url" placeholder="Paste a YouTube URL"><button id="load">Load</button></div>
+<div id="sourceStatus" class="status"></div>
+</div>
 
+<div class="card hidden" id="clipCard">
+<h2>2. Choose the exact scene</h2>
+<div id="meta" class="status"></div>
+<video id="preview" controls playsinline></video>
+<div class="range">
+<input id="start" type="number" min="0" step=".01" value="0">
+<input id="scrub" type="range" min="0" max="1" value="0" step=".01">
+<input id="end" type="number" min="0" step=".01" value="10">
+</div>
+<div class="row" style="margin-top:8px"><button class="secondary" id="setStart">Set start</button><button class="secondary" id="setEnd">Set end</button><button class="secondary" id="playClip">Preview clip</button></div>
+<div class="hint">Only the selected time interval is sent to the AI. For a long race, you can analyze separate clips and compare them.</div>
+</div>
+
+<div class="card hidden" id="targetCard">
+<h2>3. Multi-swimmer target selection</h2>
+<div class="hint">The AI detects every swimmer. Click a swimmer in the first frame to lock the target. For tiny swimmers, the backend uses tiled high-resolution detection and enlarged pose crops.</div>
+<div class="row" style="margin-top:8px"><button id="detect">Detect swimmers</button><button class="secondary" id="autoBest">Auto-select strongest track</button></div>
+<div id="targetStatus" class="status"></div>
+</div>
+
+<div class="card hidden" id="analysisCard">
+<h2>4. Race geometry + AI analysis</h2>
+<div class="grid3">
+<div><label>Pool length (m)</label><input id="pool" type="number" value="25"></div>
+<div><label>Race distance (m)</label><input id="distance" type="number" value="200"></div>
+<div><label>Stroke</label><select id="stroke"><option>Freestyle</option><option>Backstroke</option><option>Breaststroke</option><option>Butterfly</option><option>IM</option></select></div>
+</div>
+<div class="hint">For IM, the model evaluates Fly → Back → Breast → Free as separate phases and can flag likely transition frames.</div>
+<button id="run" style="width:100%;margin-top:10px">Run deep AI analysis</button>
+<div class="progress"><i id="bar"></i></div><div id="runStatus" class="status"></div>
+</div>
+</section>
+
+<aside>
+<div class="card">
+<h2>AI pipeline</h2>
+<div class="hint">
+<strong>1 · Source</strong> — YouTube metadata + local clip extraction<br>
+<strong>2 · Detection</strong> — high-resolution tiled swimmer detection<br>
+<strong>3 · Tracking</strong> — appearance + motion + pose continuity<br>
+<strong>4 · Pose</strong> — enlarged swimmer crops for small subjects<br>
+<strong>5 · Geometry</strong> — camera motion + perspective + angled wall keyframes<br>
+<strong>6 · Swimming model</strong> — stroke, turns, lengths, speed, stroke cycles<br>
+<strong>7 · Confidence</strong> — uncertainty and manual correction points
+</div>
+</div>
+
+<div class="card hidden" id="wallCard">
+<h2>Wall keyframes</h2>
+<div class="hint">Walls are not assumed to be fixed. Add a wall observation at different video times, then set its angle. The AI interpolates camera/wall geometry between keyframes.</div>
+<div class="grid2" style="margin-top:8px">
+<div><label>Wall</label><select id="wall"><option value="A">Wall A</option><option value="B">Wall B</option></select></div>
+<div><label>Angle (°)</label><input id="angle" type="number" value="0" step=".5"></div>
+</div>
+<button class="secondary" id="addWall" style="margin-top:8px">Add keyframe at current time</button>
+<div id="walls" class="status"></div>
+</div>
+
+<div class="card hidden" id="results">
+<h2>Results</h2><div class="kpis" id="kpis"></div><div id="splits" style="margin-top:10px"></div>
+<div class="row" style="margin-top:10px"><button class="secondary" id="csv">CSV</button><button class="secondary" id="json">JSON</button></div>
+</div>
+</aside>
+</main>
+<script>
+const $=x=>document.getElementById(x);let source=null,walls=[],lastResult=null;
+function fmt(s){return `${Math.floor(s/60)}:${(s%60).toFixed(2).padStart(5,'0')}`}
+function state(x){$('state').textContent=x}
+async function api(path,opts={}){let r=await fetch(path,opts);let j=await r.json();if(!r.ok)throw Error(j.detail||'Request failed');return j}
+$('load').onclick=async()=>{try{state('Loading');let j=await api('/api/youtube/inspect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value})});source=j;$('clipCard').classList.remove('hidden');$('targetCard').classList.remove('hidden');$('analysisCard').classList.remove('hidden');$('wallCard').classList.remove('hidden');$('meta').textContent=`${j.title||'YouTube video'} · ${j.duration?fmt(j.duration):'duration unavailable'}`;$('sourceStatus').textContent='Source accepted. Select the exact interval below.';if(j.preview_url)$('preview').src=j.preview_url;else $('sourceStatus').textContent+=' Backend preview is ready after extraction.';$('end').value=Math.min(30,j.duration||30);$('scrub').max=j.duration||30;state('Ready')}catch(e){$('sourceStatus').textContent=e.message;state('Error')}}
+$('scrub').oninput=()=>{$('preview').currentTime=+$('scrub').value}
+$('preview').ontimeupdate=()=>{$('scrub').value=$('preview').currentTime}
+$('setStart').onclick=()=>{$('start').value=$('preview').currentTime.toFixed(2)}
+$('setEnd').onclick=()=>{$('end').value=$('preview').currentTime.toFixed(2)}
+$('playClip').onclick=()=>{let s=+$('start').value,e=+$('end').value;$('preview').currentTime=s;$('preview').play();let f=()=>{if($('preview').currentTime>=e){$('preview').pause();$('preview').removeEventListener('timeupdate',f)}};$('preview').addEventListener('timeupdate',f)}
+$('addWall').onclick=()=>{walls.push({wall:$('wall').value,time:+$('preview').currentTime,angle:+$('angle').value});$('walls').innerHTML=walls.map((w,i)=>`#${i+1} · ${w.wall} · ${w.time.toFixed(2)}s · ${w.angle.toFixed(1)}°`).join('<br>')}
+$('detect').onclick=async()=>{try{state('Detecting');let j=await api('/api/detect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:source.url,start:+$('start').value,end:+$('end').value})});$('targetStatus').textContent=`Detected ${j.count} candidate swimmers. ${j.note||''}`;state('Target selection')}catch(e){$('targetStatus').textContent=e.message}}
+$('autoBest').onclick=()=>{$('targetStatus').textContent='Auto-selection will use the most stable high-confidence track during deep analysis.'}
+$('run').onclick=async()=>{try{state('Deep AI');$('bar').style.width='5%';let j=await api('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:source.url,start:+$('start').value,end:+$('end').value,pool_length:+$('pool').value,distance:+$('distance').value,stroke:$('stroke').value,walls})});lastResult=j;$('bar').style.width='100%';$('kpis').innerHTML=Object.entries(j.summary||{}).slice(0,8).map(([k,v])=>`<div class="kpi"><small>${k}</small><b>${typeof v==='number'?v.toFixed(2):v}</b></div>`).join('');$('splits').innerHTML='<table><tr><th>Length</th><th>Stroke</th><th>Split</th><th>Confidence</th></tr>'+((j.splits||[]).map(x=>`<tr><td>${x.length}</td><td>${x.stroke}</td><td>${x.split_s}s</td><td>${x.confidence}%</td></tr>`).join(''))+'</table>';state('Complete');$('runStatus').textContent=j.note||'Analysis complete.'}catch(e){$('runStatus').textContent=e.message;state('Error')}}
+$('csv').onclick=()=>download('swim_analysis.csv',lastResult?.csv||'','text/csv');$('json').onclick=()=>download('swim_analysis.json',JSON.stringify(lastResult,null,2),'application/json');
+function download(n,t,type){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type}));a.download=n;a.click()}
+</script>
+</body></html>
