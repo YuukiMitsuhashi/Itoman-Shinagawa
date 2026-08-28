@@ -103,8 +103,7 @@ function state(x){$('state').textContent=x}
 const API_BASE = "https://swim-ai-backend.onrender.com";
 
 async function api(path,opts={}){
-    let r=await fetch(API_BASE + path,opts);
-  let j=await r.json();if(!r.ok)throw Error(j.detail||'Request failed');return j}
+    let r=await fetch(API_BASE + path,opts);let j=await r.json();if(!r.ok)throw Error(j.detail||'Request failed');return j}
 $('load').onclick=async()=>{try{state('Loading');let j=await api('/api/youtube/inspect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value})});source=j;$('clipCard').classList.remove('hidden');$('targetCard').classList.remove('hidden');$('analysisCard').classList.remove('hidden');$('wallCard').classList.remove('hidden');$('meta').textContent=`${j.title||'YouTube video'} · ${j.duration?fmt(j.duration):'duration unavailable'}`;$('sourceStatus').textContent='Source accepted. Select the exact interval below.';if(j.preview_url)$('preview').src=j.preview_url;else $('sourceStatus').textContent+=' Backend preview is ready after extraction.';$('end').value=Math.min(30,j.duration||30);$('scrub').max=j.duration||30;state('Ready')}catch(e){$('sourceStatus').textContent=e.message;state('Error')}}
 $('scrub').oninput=()=>{$('preview').currentTime=+$('scrub').value}
 $('preview').ontimeupdate=()=>{$('scrub').value=$('preview').currentTime}
