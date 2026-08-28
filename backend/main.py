@@ -2,6 +2,7 @@ from pathlib import Path
 import json, math, os, re, subprocess, tempfile, uuid
 from typing import Any
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -10,7 +11,13 @@ ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "cache"
 CACHE.mkdir(exist_ok=True)
 app = FastAPI(title="Swim AI Pro")
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 class Source(BaseModel):
     url: str
 
